@@ -1,39 +1,53 @@
 #include <avr/io.h>
 
-int writeBit(int binario, int pos, int valor){
-  int memoria = 1 << pos;
-  binario &= ~memoria;
-  memoria = valor << pos;
-  binario |= memoria;
-  return binario;
+void wait(char time, char scale){
+  if (scale > 0){
+    for (int i = 0; i < time; i++){
+      wait(10, scale-1);
+    }
+  }
 }
 
-void wait(int i){
-  while(i--);
+char writeBit(char target, char pos, char value){
+  char memory = 1 << pos;
+  target &= ~memory;
+  memory = value << pos;
+  target |= memory;
+  return target;
 }
 
-int debounce(int pino){
-  int c = 0;
-  int atual = PINB & pino;
+char debounce(){
+  char c = 0;
+  char thisState = PINB & 0x2;
+  char bfState;
   do{
-    int passada = atual;
-    wait(100);
-    atual = PINB & pino;
-    c = (atual == passada) ? c + 1 : 0;
-  } while (c < 10);
-  return (atual == 0) ? 0 : 1;
+    bfState = thisState;
+    wait(5, 6);
+    thisState = PINB & 0x2;
+    c = (thisState == bfState) ? c+1 : 0;
+  }while(c<10);
+  return thisState;
 }
 
-void startConfig(){
-  DDRB = DDRB | 0x20; // Configura PB5(13) do Arduino como Saída, o resto é leitura
-  PORTB = PORTB | 0x22; // Configura PB5 como sendo alto, e PB1(9) como sendo alto/ativa resistencia de pull-up
+void config(){
+  DDRB = 0x20;
+  PORTB = 0x22;
 }
 
 int main(){
-  startConfig();
-  while (1){
-    int valor = debounce(0x2);
-    PORTB = writeBit(PORTB, 5, valor);
+  config();
+  char isPressed = 0;
+  char changeState = 0;
+  char state = 0;
+  while(1){
+    isPressed = debounce();
+    if (isPressed){
+      changeState = 1;
+    }else{
+      state ^= changeState;
+      changeState = 0;
+      PORTB = writeBit(PORTB, 5, state);
+    }
   }
   return 0;
 }
